@@ -44,7 +44,8 @@ static void usage(int retcode)
 	" -h  - help (show this message)\n"
 	" -u  - unlink (delete <arg file>)\n"
 	"\n"
-	" <arg file> - file with NUL-separated arguments; symlinks are NOT supported (for good reason)\n"
+	" <arg file> - file with NUL-separated arguments;\n"
+	"              symlinks are NOT supported (for good reason)\n"
 	, stderr);
 
 	exit(retcode);
@@ -154,7 +155,7 @@ static const size_t max_arg_strlen = 32 * _MEMFUN_PAGE_DEFAULT;
 
 typedef struct { char path[4096]; } path;
 
-static size_t   size_pad, size_args, argc_max;
+static size_t   size_args, argc_max;
 static string_v argv_init, argv_curr;
 
 static void prepare(int argc, char * argv[])
@@ -162,8 +163,7 @@ static void prepare(int argc, char * argv[])
 	callee = argv[optind];
 	script  = argv[argc - 1];
 
-	size_pad = get_env_size();
-	size_args = get_arg_max() - size_pad;
+	size_args = get_arg_max() - get_env_size();
 	// differs from "findutils" variant
 	argc_max = (size_args / sizeof(size_t)) - 4;
 
@@ -173,12 +173,7 @@ static void prepare(int argc, char * argv[])
 		UVECTOR_CALL(string_v, append, &argv_init, argv[i]);
 	}
 
-	if (argv_init.allocated >= size_args) {
-		dump_error(E2BIG, "xvp:prepare()");
-		exit(E2BIG);
-	}
-
-	if (argv_init.offsets.used >= argc_max) {
+	if ((argv_init.allocated >= size_args) || (argv_init.offsets.used >= argc_max)) {
 		dump_error(E2BIG, "xvp:prepare()");
 		exit(E2BIG);
 	}
