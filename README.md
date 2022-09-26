@@ -1,8 +1,10 @@
 ## About
 
-`xvp` executes programs against NUL-separated argument list in file.
+`xvp` executes program against NUL-separated argument list in file.
 
-`xvp` is NOT replacement for `xargs` or `xe` - it does the same tasks with different options.
+If argument list (file) is empty then program will not be executed - compare with "`xargs -r`" and consider this behavior as default.
+
+Hovewer, `xvp` is NOT replacement for `xargs` or `xe` - it does the same tasks with different options.
 
 `xvp` is small supplemental utility for [minimal Debian container image](https://github.com/rockdrilla/docker-debian) (*work in progress*).
 
@@ -25,24 +27,26 @@ Program is kinda *dumb* so feel free to open issue/PR. :)
 
 ### Example:
 
+Nota bene: two dashes ("--") are mandatory for /bin/sh in this example.
+
 ```sh
-printf '%s\0' $(seq 1 6) > /tmp/argz ; xxd < /tmp/argz ; xvp -u -- sh -c 'echo $@ ; echo ; exit 7' -- /tmp/argz ; echo $? ; ls -l /tmp/argz
+# printf '%s\0' $(seq 1 6) > /tmp/argz
+# xxd < /tmp/argz
 00000000: 3100 3200 3300 3400 3500 3600            1.2.3.4.5.6.
+# xvp -u sh -c 'echo $@ ; echo ; exit 15' -- /tmp/argz
 1 2 3 4 5 6
 
-7
-/usr/bin/ls: cannot access '/tmp/argz': No such file or directory
+# echo $?
+15
+# ls -l /tmp/argz
+ls: cannot access '/tmp/argz': No such file or directory
 ```
 
-Generic case:
+
+Generic case "`xvp -u program ./argfile`" is roughly equal to:
 
 ```sh
-xvp program ./argfile
-```
-
-is roughly equal to:
-
-```sh
+#!/bin/sh
 xargs -0 -a ./argfile program &
 wait ; rm -f ./argfile
 ```
