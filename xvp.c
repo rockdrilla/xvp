@@ -82,7 +82,7 @@ static void parse_opts(int argc, char * argv[])
 	memset(&opt, 0, sizeof(opt));
 
 	int o;
-	while ((o = getopt(argc, (char * const *) argv, XVP_OPTS)) != -1) {
+	while ((o = getopt(argc, (char * const *) argv, "+" XVP_OPTS)) != -1) {
 		switch (o) {
 		case 'h':
 			usage(0);
