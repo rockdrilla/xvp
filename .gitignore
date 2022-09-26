@@ -1,0 +1,4 @@
+.vscode/
+build/
+xvp
+CMakeLists.txt.user
