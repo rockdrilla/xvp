@@ -103,16 +103,6 @@ static void parse_opts(int argc, char * argv[])
 		usage(EINVAL);
 }
 
-static uint32_t get_headroom(void)
-{
-#ifdef ARG_MAX
-	const uint32_t POSIX_ENV_HEADROOM = 2048;
-	if (ARG_MAX > 0) return POSIX_ENV_HEADROOM;
-#endif
-
-	return _MEMFUN_PAGE_DEFAULT;
-}
-
 static size_t get_env_size(void)
 {
 	static size_t x = 0;
@@ -120,11 +110,14 @@ static size_t get_env_size(void)
 
 	for (char ** p = environ; *p; ++p)
 		x += strlen(*p) + 1;
-	
-	x += get_headroom();
-	x = roundbyl(x, memfun_page_size());
 
-	return x;
+	size_t y = roundbyl(x, _MEMFUN_PAGE_DEFAULT);
+
+	const uint32_t POSIX_ENV_HEADROOM = 2048;
+	if ((y - x) <= POSIX_ENV_HEADROOM)
+		y += _MEMFUN_PAGE_DEFAULT;
+
+	return x = y;
 }
 
 static size_t get_arg_max(void)
@@ -318,7 +311,7 @@ static void run(void)
 				break;
 			}
 		}
-	
+
 		if (n_read <= 0) break;
 
 		if (!exec_ready) continue;
