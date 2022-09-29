@@ -97,9 +97,8 @@ static void parse_opts(int argc, char * argv[])
 		usage(EINVAL);
 	}
 
-	if ((argc - optind) < 2) {
+	if ((argc - optind) < 2)
 		usage(EINVAL);
-	}
 }
 
 static uint32_t get_headroom(void)
@@ -174,7 +173,7 @@ static void prepare(int argc, char * argv[])
 	}
 
 	if ((argv_init.allocated >= size_args) || (argv_init.offsets.used >= argc_max)) {
-		dump_error(E2BIG, "xvp:prepare()");
+		dump_error(E2BIG, "prepare()");
 		exit(E2BIG);
 	}
 }
@@ -340,8 +339,7 @@ _run_out:
 	if (opt.Unlink_argfile) unlink(script);
 
 _run_err:
-	// if (err)
-	dump_error(err, "xvp:run()");
+	dump_error(err, "run()");
 	exit(err);
 }
 
@@ -352,7 +350,7 @@ static void dump_error(int error_num, const char * where)
 
 	memset(&e_buf, 0, sizeof(e_buf));
 	e_str = strerror_r(error_num, e_buf, sizeof(e_buf) - 1);
-	fprintf(stderr, "%s error %d: %s\n", where, error_num, e_str);
+	fprintf(stderr, "xvp: %s error %d: %s\n", where, error_num, e_str);
 }
 
 static void dump_path_error(int error_num, const char * where, const char * name)
@@ -362,5 +360,5 @@ static void dump_path_error(int error_num, const char * where, const char * name
 
 	memset(&e_buf, 0, sizeof(e_buf));
 	e_str = strerror_r(error_num, e_buf, sizeof(e_buf) - 1);
-	fprintf(stderr, "%s path '%s' error %d: %s\n", where, name, error_num, e_str);
+	fprintf(stderr, "xvp: %s path '%s' error %d: %s\n", where, name, error_num, e_str);
 }
