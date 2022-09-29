@@ -19,6 +19,7 @@
 #define _GNU_SOURCE
 #define __STDC_WANT_LIB_EXT1__ 1
 
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -75,6 +76,7 @@ int main(int argc, char * argv[])
 	return 0;
 }
 
+static int handle_file_type(uint32_t type, const char * arg);
 static void dump_error(int error_num, const char * where);
 static void dump_path_error(int error_num, const char * where, const char * name);
 
@@ -224,6 +226,19 @@ static void run(void)
 		exit(err);
 	}
 
+	struct stat f_stat;
+	memset(&f_stat, 0, sizeof(f_stat));
+	if (fstat(fd, &f_stat) < 0) {
+		err = errno;
+		dump_path_error(err, "fstat(2)", script);
+		exit(err);
+	}
+
+	if (!handle_file_type(IFTODT(f_stat.st_mode), script)) {
+		err = EINVAL;
+		exit(err);
+	}
+
 	size_t n_buf = 0, total = 0, block;
 	ssize_t n_read = 0;
 	char * tbuf;
@@ -346,6 +361,26 @@ _run_out:
 _run_err:
 	dump_error(err, "run()");
 	exit(err);
+}
+
+static int handle_file_type(uint32_t type, const char * arg)
+{
+	const char * e_type = NULL;
+	switch (type) {
+	case DT_REG:  break;
+	case DT_DIR:  e_type = "directory";          break;
+	case DT_LNK:  e_type = "symbolic link";      break;
+	case DT_BLK:  e_type = "block device";       break;
+	case DT_CHR:  e_type = "character device";   break;
+	case DT_FIFO: e_type = "FIFO";               break;
+	case DT_SOCK: e_type = "socket";             break;
+	default:      e_type = "unknown entry type"; break;
+	}
+
+	if (!e_type) return 1;
+
+	fprintf(stderr, "xvp: <arg file> %s is not file but rather %s\n", arg, e_type);
+	return 0;
 }
 
 static void dump_error(int error_num, const char * where)
