@@ -194,6 +194,14 @@ static void do_exec(void)
 	exit(err);
 }
 
+static void delete_script(void)
+{
+	if (!opt.Unlink_argfile) return;
+
+	unlink(script);
+	opt.Unlink_argfile = 0;
+}
+
 static void run(void)
 {
 	int err = 0;
@@ -325,10 +333,7 @@ static void run(void)
 
 	close(fd); fd = -1;
 
-	if (opt.Unlink_argfile) {
-		unlink(script);
-		opt.Unlink_argfile = 0;
-	}
+	delete_script();
 
 	do_exec();
 	return;
@@ -336,7 +341,7 @@ static void run(void)
 _run_out:
 	if (fd >= 0) close(fd);
 
-	if (opt.Unlink_argfile) unlink(script);
+	delete_script();
 
 _run_err:
 	dump_error(err, "run()");
