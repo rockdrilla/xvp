@@ -17,6 +17,8 @@
  */
 
 #define _GNU_SOURCE
+#define _LARGEFILE_SOURCE
+#define _FILE_OFFSET_BITS 64
 #define __STDC_WANT_LIB_EXT1__ 1
 
 #include <dirent.h>
@@ -152,6 +154,8 @@ typedef struct { char path[4096]; } path;
 static size_t   size_args, argc_max;
 static string_v argv_init, argv_curr;
 
+static struct stat f_stat;
+
 static void prepare(int argc, char * argv[])
 {
 	callee = argv[optind];
@@ -192,9 +196,22 @@ static void do_exec(void)
 static void delete_script(void)
 {
 	if (!opt.Unlink_argfile) return;
+	opt.Unlink_argfile = 0;
+
+	struct stat l_stat;
+	memset(&l_stat, 0, sizeof(l_stat));
+	if (lstat(script, &l_stat) < 0) {
+		dump_path_error(errno, "lstat(2)", script);
+		return;
+	}
+
+	if (f_stat.st_dev != l_stat.st_dev) return;
+	if (f_stat.st_ino != l_stat.st_ino) return;
+
+	l_stat.st_mode &= S_IFMT;
+	if (f_stat.st_mode != l_stat.st_mode) return;
 
 	unlink(script);
-	opt.Unlink_argfile = 0;
 }
 
 static void run(void)
@@ -219,13 +236,13 @@ static void run(void)
 		exit(err);
 	}
 
-	struct stat f_stat;
 	memset(&f_stat, 0, sizeof(f_stat));
 	if (fstat(fd, &f_stat) < 0) {
 		err = errno;
 		dump_path_error(err, "fstat(2)", script);
 		exit(err);
 	}
+	f_stat.st_mode &= S_IFMT;
 
 	if (!handle_file_type(IFTODT(f_stat.st_mode), script)) {
 		err = EINVAL;
