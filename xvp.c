@@ -42,7 +42,7 @@
 static void usage(int retcode)
 {
 	fputs(
-	"xvp 0.1.0\n"
+	"xvp 0.1.1\n"
 	"Usage: xvp [-" XVP_OPTS "] <program> [..<common args>] <arg file>\n"
 	" -h  - help (show this message)\n"
 	" -u  - unlink (delete <arg file>)\n"
