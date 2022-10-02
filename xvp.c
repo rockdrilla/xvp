@@ -120,7 +120,7 @@ static size_t get_env_size(void)
 
 	size_t y = roundbyl(x, _MEMFUN_PAGE_DEFAULT);
 
-	const uint32_t POSIX_ENV_HEADROOM = 2048;
+	const uint32_t POSIX_ENV_HEADROOM = _MEMFUN_PAGE_DEFAULT / 2;
 	if ((y - x) <= POSIX_ENV_HEADROOM)
 		y += _MEMFUN_PAGE_DEFAULT;
 
@@ -150,9 +150,6 @@ static size_t get_arg_max(void)
 	// differs from "findutils" variant
 	return x = (LONG_MAX >> 1);
 }
-
-// static const size_t default_arg_max = 2097152;
-static const size_t max_arg_strlen = 32 * _MEMFUN_PAGE_DEFAULT;
 
 typedef struct { char path[4096]; } path;
 
@@ -227,8 +224,15 @@ static void run(void)
 
 	int fd = -1;
 
-	char buf_read[max_arg_strlen * 2];
-	char buf_arg[max_arg_strlen];
+	size_t s_buf_arg  = 32 * memfun_page_size();
+	size_t s_buf_read = 33 * memfun_page_size(); // s_buf_arg + one extra page
+	char * buf_arg  = memfun_alloc(s_buf_arg);
+	char * buf_read = memfun_alloc(s_buf_read);
+	if ((!buf_arg) || (!buf_read)) {
+		err = errno;
+		if (!err) err = ENOMEM;
+		goto _run_err;
+	}
 
 	if (!UVECTOR_CALL(string_v, dup, &argv_curr, &argv_init)) {
 		err = errno;
@@ -264,7 +268,7 @@ static void run(void)
 	pid_t child;
 	siginfo_t child_info;
 
-	(void) memset(buf_arg, 0, sizeof(buf_arg));
+	(void) memset(buf_arg, 0, s_buf_arg);
 
 	for (;;) {
 		if (arg_pend) {
@@ -277,12 +281,12 @@ static void run(void)
 
 			total = 0;
 			arg_pend = 0;
-			(void) memset(buf_arg, 0, sizeof(buf_arg));
+			(void) memset(buf_arg, 0, s_buf_arg);
 		}
 
 		if (!n_buf) {
-			(void) memset(buf_read, 0, sizeof(buf_read));
-			n_read = read(fd, buf_read, sizeof(buf_read));
+			(void) memset(buf_read, 0, s_buf_read);
+			n_read = read(fd, buf_read, s_buf_read);
 			if (n_read > 0) n_buf = (size_t) n_read;
 			tbuf = buf_read;
 		}
@@ -291,7 +295,7 @@ static void run(void)
 			block = strnlen(tbuf, n_buf);
 			total += block;
 
-			if ((total + 1) >= sizeof(buf_arg)) {
+			if ((total + 1) >= s_buf_arg) {
 				if (block == n_buf) {
 					n_buf = 0;
 					break;
@@ -300,7 +304,7 @@ static void run(void)
 				block++; n_buf -= block; tbuf += block;
 
 				total = 0;
-				(void) memset(buf_arg, 0, sizeof(buf_arg));
+				(void) memset(buf_arg, 0, s_buf_arg);
 
 				continue;
 			}
@@ -328,7 +332,7 @@ static void run(void)
 			}
 
 			total = 0;
-			(void) memset(buf_arg, 0, sizeof(buf_arg));
+			(void) memset(buf_arg, 0, s_buf_arg);
 
 			if (argv_curr.offsets.used == argc_max) {
 				exec_ready = 1;
