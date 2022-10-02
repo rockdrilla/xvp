@@ -37,7 +37,7 @@
 
 #include "include/uvector/uvector.h"
 
-#define XVP_OPTS "hu"
+#define XVP_OPTS "fhu"
 
 static void usage(int retcode)
 {
@@ -45,6 +45,7 @@ static void usage(int retcode)
 	"xvp 0.1.1\n"
 	"Usage: xvp [-" XVP_OPTS "] <program> [..<common args>] <arg file>\n"
 	" -h  - help (show this message)\n"
+	" -f  - force (force _single_ <program> execution or return error)\n"
 	" -u  - unlink (delete <arg file>)\n"
 	"\n"
 	" <arg file> - file with NUL-separated arguments;\n"
@@ -56,6 +57,7 @@ static void usage(int retcode)
 
 static struct {
 	uint8_t
+	  Force_once,
 	  Unlink_argfile
 	;
 } opt;
@@ -92,6 +94,10 @@ static void parse_opts(int argc, char * argv[])
 		case 'h':
 			usage(0);
 			break;
+		case 'f':
+			if (opt.Force_once) break;
+			opt.Force_once = 1;
+			continue;
 		case 'u':
 			if (opt.Unlink_argfile) break;
 			opt.Unlink_argfile = 1;
@@ -332,6 +338,11 @@ static void run(void)
 		if (n_read <= 0) break;
 
 		if (!exec_ready) continue;
+
+		if (opt.Force_once) {
+			err = E2BIG;
+			goto _run_out;
+		}
 
 		child = fork();
 		if (child == 0) do_exec();
