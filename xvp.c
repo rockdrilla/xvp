@@ -46,10 +46,9 @@ static void usage(int retcode)
 	"Usage: xvp [-" XVP_OPTS "] <program> [..<common args>] <arg file>\n"
 	" -h  - help (show this message)\n"
 	" -f  - force (force _single_ <program> execution or return error)\n"
-	" -u  - unlink (delete <arg file>)\n"
+	" -u  - unlink (delete <arg file> if it's regular file)\n"
 	"\n"
-	" <arg file> - file with NUL-separated arguments;\n"
-	"              symlinks are NOT supported (for good reason)\n"
+	" <arg file> - file with NUL-separated arguments\n"
 	, stderr);
 
 	exit(retcode);
@@ -217,6 +216,8 @@ static void delete_script(void)
 	l_stat.st_mode &= S_IFMT;
 	if (f_stat.st_mode != l_stat.st_mode) return;
 
+	if (IFTODT(l_stat.st_mode) != DT_REG) return;
+
 	unlink(script);
 }
 
@@ -235,7 +236,7 @@ static void run(void)
 		goto _run_err;
 	}
 
-	fd = open(script, O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
+	fd = open(script, O_RDONLY | O_CLOEXEC);
 	if (fd < 0) {
 		err = errno;
 		dump_path_error(err, "open(2)", script);
@@ -388,19 +389,19 @@ static int handle_file_type(uint32_t type, const char * arg)
 {
 	const char * e_type = NULL;
 	switch (type) {
+	case DT_BLK:  break;
+	case DT_CHR:  break;
+	case DT_FIFO: break;
 	case DT_REG:  break;
+	case DT_SOCK: break;
 	case DT_DIR:  e_type = "directory";          break;
 	case DT_LNK:  e_type = "symbolic link";      break;
-	case DT_BLK:  e_type = "block device";       break;
-	case DT_CHR:  e_type = "character device";   break;
-	case DT_FIFO: e_type = "FIFO";               break;
-	case DT_SOCK: e_type = "socket";             break;
 	default:      e_type = "unknown entry type"; break;
 	}
 
 	if (!e_type) return 1;
 
-	fprintf(stderr, "xvp: <arg file> %s is not file but rather %s\n", arg, e_type);
+	fprintf(stderr, "xvp: <arg file> %s is type of %s\n", arg, e_type);
 	return 0;
 }
 
