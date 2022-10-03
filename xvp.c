@@ -35,6 +35,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 
+#include "include/io/const.h"
 #include "include/uvector/uvector.h"
 
 #define XVP_OPTS "fhiu"
@@ -150,8 +151,6 @@ static size_t get_arg_max(void)
 	// differs from "findutils" variant
 	return x = (LONG_MAX >> 1);
 }
-
-typedef struct { char path[4096]; } path;
 
 static size_t   size_env, size_args, argc_max;
 static string_v argv_init, argv_curr;
@@ -431,10 +430,10 @@ static int handle_file_type(uint32_t type, const char * arg)
 	return 0;
 }
 
+static char e_buf[PATH_MAX + _MEMFUN_PAGE_DEFAULT];
 static void dump_error(int error_num, const char * where)
 {
-	char        * e_str = NULL;
-	static char   e_buf[4096];
+	char * e_str = NULL;
 
 	memset(&e_buf, 0, sizeof(e_buf));
 	e_str = strerror_r(error_num, e_buf, sizeof(e_buf) - 1);
@@ -443,8 +442,7 @@ static void dump_error(int error_num, const char * where)
 
 static void dump_path_error(int error_num, const char * where, const char * name)
 {
-	char        * e_str = NULL;
-	static char   e_buf[4096 + sizeof(path)];
+	char * e_str = NULL;
 
 	memset(&e_buf, 0, sizeof(e_buf));
 	e_str = strerror_r(error_num, e_buf, sizeof(e_buf) - 1);
