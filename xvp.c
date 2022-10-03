@@ -183,7 +183,7 @@ static void prepare(int argc, char * argv[])
 		UVECTOR_CALL(string_v, append, &argv_init, argv[i]);
 	}
 
-	if ((argv_init.allocated >= size_args) || (argv_init.offsets.used >= argc_max)) {
+	if ((argv_init.used >= size_args) || (argv_init.offsets.used >= argc_max)) {
 		dump_error(E2BIG, "prepare()");
 		exit(E2BIG);
 	}
