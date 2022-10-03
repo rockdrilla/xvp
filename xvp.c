@@ -37,7 +37,7 @@
 
 #include "include/uvector/uvector.h"
 
-#define XVP_OPTS "fhu"
+#define XVP_OPTS "fhiu"
 
 static void usage(int retcode)
 {
@@ -45,6 +45,7 @@ static void usage(int retcode)
 	"xvp 0.1.1\n"
 	"Usage: xvp [-" XVP_OPTS "] <program> [..<common args>] <arg file>\n"
 	" -h  - help (show this message)\n"
+	" -i  - info (print limits and do nothing)\n"
 	" -f  - force (force _single_ <program> execution or return error)\n"
 	" -u  - unlink (delete <arg file> if it's regular file)\n"
 	"\n"
@@ -57,6 +58,7 @@ static void usage(int retcode)
 static struct {
 	uint8_t
 	  Force_once,
+	  Info_only,
 	  Unlink_argfile
 	;
 } opt;
@@ -97,6 +99,10 @@ static void parse_opts(int argc, char * argv[])
 			if (opt.Force_once) break;
 			opt.Force_once = 1;
 			continue;
+		case 'i':
+			if (opt.Info_only) break;
+			opt.Info_only = 1;
+			continue;
 		case 'u':
 			if (opt.Unlink_argfile) break;
 			opt.Unlink_argfile = 1;
@@ -118,13 +124,7 @@ static size_t get_env_size(void)
 	for (char ** p = environ; *p; ++p)
 		x += strlen(*p) + 1;
 
-	size_t y = roundbyl(x, _MEMFUN_PAGE_DEFAULT);
-
-	const uint32_t POSIX_ENV_HEADROOM = _MEMFUN_PAGE_DEFAULT / 2;
-	if ((y - x) <= POSIX_ENV_HEADROOM)
-		y += _MEMFUN_PAGE_DEFAULT;
-
-	return x = y;
+	return x;
 }
 
 static size_t get_arg_max(void)
@@ -153,7 +153,7 @@ static size_t get_arg_max(void)
 
 typedef struct { char path[4096]; } path;
 
-static size_t   size_args, argc_max;
+static size_t   size_env, size_args, argc_max;
 static string_v argv_init, argv_curr;
 
 static struct stat f_stat;
@@ -163,7 +163,17 @@ static void prepare(int argc, char * argv[])
 	callee = argv[optind];
 	script  = argv[argc - 1];
 
-	size_args = get_arg_max() - get_env_size();
+	size_env = get_env_size();
+	{
+		size_t x = roundbyl(size_env, _MEMFUN_PAGE_DEFAULT);
+
+		const uint32_t POSIX_ENV_HEADROOM = _MEMFUN_PAGE_DEFAULT / 2;
+		if ((x - size_env) <= POSIX_ENV_HEADROOM)
+			x += _MEMFUN_PAGE_DEFAULT;
+
+		size_env = x;
+	}
+	size_args = get_arg_max() - size_env;
 	// differs from "findutils" variant
 	argc_max = (size_args / sizeof(size_t)) - 4;
 
@@ -220,8 +230,20 @@ static void delete_script(void)
 
 static void run(void)
 {
-	int err = 0;
+	if (opt.Info_only) {
+		fprintf(stderr, "System page size: %lu\n", memfun_page_size());
+		fprintf(stderr, "Maximum (single) argument length: %lu\n", 32 * memfun_page_size());
+		fprintf(stderr, "Environment size, as is: %lu\n", get_env_size());
+		fprintf(stderr, "Environment size, round: %lu\n", size_env);
+		fprintf(stderr, "Maximum arguments length, system:  %lu\n", get_arg_max());
+		fprintf(stderr, "Maximum arguments length, current: %lu\n", size_args);
+		fprintf(stderr, "Initial arguments length:          %lu\n", argv_init.used);
+		fprintf(stderr, "Maximum argument count: %lu\n", argc_max);
+		fprintf(stderr, "Initial argument count: %u\n", argv_init.offsets.used);
+		return;
+	}
 
+	int err = 0;
 	int fd = -1;
 
 	size_t s_buf_arg  = 32 * memfun_page_size();
