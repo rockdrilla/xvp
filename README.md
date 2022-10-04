@@ -8,22 +8,23 @@ Hovewer, `xvp` is NOT replacement for `xargs` or `xe` - it does the same tasks w
 
 `xvp` is small supplemental utility for [minimal Debian container image](https://github.com/rockdrilla/docker-debian) (*work in progress*).
 
-Program is kinda *dumb* so feel free to open issue/PR. :)
+If you have problems with it then feel free to open the issue/PR. :)
 
 ---
 
 ## Usage:
 
-`xvp [-u] <program> [..<common args>] <arg file>`
+`xvp [-fiu] <program> [..<common args>] <arg file>`
 
-`<arg file>` - file with NUL-separated arguments; symlinks are NOT supported (for good reason)
+`<arg file>` - file with NUL-separated arguments
 
 ### Options:
 
-| Option | Description                             |
-| ------ | --------------------------------------- |
-|  `-u`  | unlink (delete) `<arg file>` after work |
-
+| Option | Description                                                               |
+| ------ | ------------------------------------------------------------------------- |
+|  `-i`  | information only (print related system limits and do not run `<program>`) |
+|  `-f`  | force **single** `<program>` execution or return error                    |
+|  `-u`  | unlink (delete) `<arg file>` after work only if it's regular file         |
 
 ### Example:
 
@@ -41,7 +42,6 @@ Nota bene: two dashes ("--") are mandatory for /bin/sh in this example.
 # ls -l /tmp/argz
 ls: cannot access '/tmp/argz': No such file or directory
 ```
-
 
 Generic case "`xvp -u program ./argfile`" is roughly equal to:
 
