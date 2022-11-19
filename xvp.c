@@ -165,11 +165,11 @@ static void prepare(int argc, char * argv[])
 
 	size_env = get_env_size();
 	{
-		size_t x = roundbyl(size_env, _MEMFUN_PAGE_DEFAULT);
+		size_t x = roundbyl(size_env, memfun_page_default);
 
-		const uint32_t POSIX_ENV_HEADROOM = _MEMFUN_PAGE_DEFAULT / 2;
+		const uint32_t POSIX_ENV_HEADROOM = memfun_page_default / 2;
 		if ((x - size_env) <= POSIX_ENV_HEADROOM)
-			x += _MEMFUN_PAGE_DEFAULT;
+			x += memfun_page_default;
 
 		size_env = x;
 	}
