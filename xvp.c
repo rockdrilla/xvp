@@ -230,9 +230,11 @@ static void delete_script(void)
 
 static void run(void)
 {
+	size_t s_buf_arg  = 32 * memfun_page_size();
+
 	if (opt.Info_only) {
 		fprintf(stderr, "System page size: %lu\n", memfun_page_size());
-		fprintf(stderr, "Maximum (single) argument length: %lu\n", 32 * memfun_page_size());
+		fprintf(stderr, "Maximum (single) argument length: %lu\n", s_buf_arg);
 		fprintf(stderr, "Environment size, as is: %lu\n", get_env_size());
 		fprintf(stderr, "Environment size, round: %lu\n", size_env);
 		fprintf(stderr, "Maximum arguments length, system:  %lu\n", get_arg_max());
@@ -246,8 +248,7 @@ static void run(void)
 	int err = 0;
 	int fd = -1;
 
-	size_t s_buf_arg  = 32 * memfun_page_size();
-	size_t s_buf_read = 33 * memfun_page_size(); // s_buf_arg + one extra page
+	size_t s_buf_read = s_buf_arg + memfun_page_size(); // s_buf_arg + one extra page
 	char * buf_arg  = memfun_alloc(s_buf_arg);
 	char * buf_read = memfun_alloc(s_buf_read);
 	if ((!buf_arg) || (!buf_read)) {
