@@ -36,6 +36,7 @@
 #include <sys/wait.h>
 
 #include "include/io/const.h"
+#include "include/io/log-stderr.h"
 #include "include/uvector/uvector.h"
 
 #define XVP_OPTS "fhiu"
@@ -430,21 +431,12 @@ static int handle_file_type(uint32_t type, const char * arg)
 	return 0;
 }
 
-static char e_buf[PATH_MAX + _MEMFUN_PAGE_DEFAULT];
 static void dump_error(int error_num, const char * where)
 {
-	char * e_str = NULL;
-
-	memset(&e_buf, 0, sizeof(e_buf));
-	e_str = strerror_r(error_num, e_buf, sizeof(e_buf) - 1);
-	fprintf(stderr, "xvp: %s error %d: %s\n", where, error_num, e_str);
+	log_stderr_error_ex("xvp:", error_num, "%s", where);
 }
 
 static void dump_path_error(int error_num, const char * where, const char * name)
 {
-	char * e_str = NULL;
-
-	memset(&e_buf, 0, sizeof(e_buf));
-	e_str = strerror_r(error_num, e_buf, sizeof(e_buf) - 1);
-	fprintf(stderr, "xvp: %s path '%s' error %d: %s\n", where, name, error_num, e_str);
+	log_stderr_path_error_ex("xvp:", name, error_num, "%s", where);
 }
