@@ -114,7 +114,7 @@ static void parse_opts(int argc, char * argv[])
 		usage(EINVAL);
 	}
 
-	if ((argc - optind) < 2)
+	if (((argc - optind) < 2) && !opt.Info_only)
 		usage(EINVAL);
 }
 
