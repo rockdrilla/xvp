@@ -44,7 +44,7 @@
 static void usage(int retcode)
 {
 	fputs(
-	"xvp 0.2.0\n"
+	"xvp 0.2.1\n"
 	"Usage: xvp [-" XVP_OPTS "] <program> [..<common args>] <arg file>\n"
 	" -h  - help (show this message)\n"
 	" -i  - info (print limits and do nothing)\n"
