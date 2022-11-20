@@ -14,7 +14,7 @@ If you have problems with it then feel free to open the issue/PR. :)
 
 ## Usage:
 
-`xvp [-fiu] <program> [..<common args>] <arg file>`
+`xvp [-cfiu] <program> [..<common args>] <arg file>`
 
 `<arg file>` - file with NUL-separated arguments
 
@@ -23,6 +23,7 @@ If you have problems with it then feel free to open the issue/PR. :)
 | Option | Description                                                               |
 | ------ | ------------------------------------------------------------------------- |
 |  `-i`  | information only (print related system limits and do not run `<program>`) |
+|  `-c`  | run `<program>` with empty environment                                    |
 |  `-f`  | force **single** `<program>` execution or return error                    |
 |  `-u`  | unlink (delete) `<arg file>` after work only if it's regular file         |
 

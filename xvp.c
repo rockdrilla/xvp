@@ -39,13 +39,14 @@
 #include "include/io/log-stderr.h"
 #include "include/uvector/uvector.h"
 
-#define XVP_OPTS "fhiu"
+#define XVP_OPTS "cfhiu"
 
 static void usage(int retcode)
 {
 	fputs(
 	"xvp 0.2.1\n"
 	"Usage: xvp [-" XVP_OPTS "] <program> [..<common args>] <arg file>\n"
+	" -c  - clean env (run <program> with empty environment)\n"
 	" -h  - help (show this message)\n"
 	" -i  - info (print limits and do nothing)\n"
 	" -f  - force (force _single_ <program> execution or return error)\n"
@@ -59,6 +60,7 @@ static void usage(int retcode)
 
 static struct {
 	uint8_t
+	  Clean_env,
 	  Force_once,
 	  Info_only,
 	  Unlink_argfile
@@ -97,6 +99,10 @@ static void parse_opts(int argc, char * argv[])
 		case 'h':
 			usage(0);
 			break;
+		case 'c':
+			if (opt.Clean_env) break;
+			opt.Clean_env = 1;
+			continue;
 		case 'f':
 			if (opt.Force_once) break;
 			opt.Force_once = 1;
@@ -173,7 +179,7 @@ static void prepare(int argc, char * argv[])
 
 		size_env = x;
 	}
-	size_args = get_arg_max() - size_env;
+	size_args = get_arg_max() - ((opt.Clean_env) ? 0 : size_env);
 	// differs from "findutils" variant
 	argc_max = (size_args / sizeof(size_t)) - 4;
 
@@ -198,7 +204,12 @@ static void do_exec(void)
 
 	int err = 0;
 	const char * const * argv = UVECTOR_CALL(string_v, to_ptrlist, &argv_curr);
-	execvp(argv[0], (char * const *) argv);
+	if (opt.Clean_env) {
+		char * envp[] = { NULL };
+		execvpe(argv[0], (char * const *) argv, envp);
+	}
+	else
+		execvp(argv[0], (char * const *) argv);
 	// execution follows here in case of errors
 	err = errno;
 	dump_error(err, "execvp(3)");
