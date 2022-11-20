@@ -39,18 +39,19 @@
 #include "include/io/log-stderr.h"
 #include "include/uvector/uvector.h"
 
-#define XVP_OPTS "cfhiu"
+#define XVP_OPTS "a:cfhiu"
 
 static void usage(int retcode)
 {
 	fputs(
 	"xvp 0.2.1\n"
-	"Usage: xvp [-" XVP_OPTS "] <program> [..<common args>] <arg file>\n"
-	" -c  - clean env (run <program> with empty environment)\n"
-	" -h  - help (show this message)\n"
-	" -i  - info (print limits and do nothing)\n"
-	" -f  - force (force _single_ <program> execution or return error)\n"
-	" -u  - unlink (delete <arg file> if it's regular file)\n"
+	"Usage: xvp [-a <arg0>] [-cfhiu] <program> [..<common args>] <arg file>\n"
+	" -a <arg0> - arg0 (set argv[0] for <program> to <arg0>)\n"
+	" -c        - clean env (run <program> with empty environment)\n"
+	" -h        - help (show this message)\n"
+	" -i        - info (print limits and do nothing)\n"
+	" -f        - force (force _single_ <program> execution or return error)\n"
+	" -u        - unlink (delete <arg file> if it's regular file)\n"
 	"\n"
 	" <arg file> - file with NUL-separated arguments\n"
 	, stderr);
@@ -59,6 +60,7 @@ static void usage(int retcode)
 }
 
 static struct {
+	char * Arg0;
 	uint8_t
 	  Clean_env,
 	  Force_once,
@@ -94,11 +96,15 @@ static void parse_opts(int argc, char * argv[])
 	memset(&opt, 0, sizeof(opt));
 
 	int o;
-	while ((o = getopt(argc, (char * const *) argv, "+" XVP_OPTS)) != -1) {
+	while ((o = getopt(argc, (char * const *) argv, "++" XVP_OPTS)) != -1) {
 		switch (o) {
 		case 'h':
 			usage(0);
 			break;
+		case 'a':
+			if (opt.Arg0) break;
+			opt.Arg0 = optarg;
+			continue;
 		case 'c':
 			if (opt.Clean_env) break;
 			opt.Clean_env = 1;
@@ -184,7 +190,7 @@ static void prepare(int argc, char * argv[])
 	argc_max = (size_args / sizeof(size_t)) - 4;
 
 	UVECTOR_CALL(string_v, init, &argv_init);
-	UVECTOR_CALL(string_v, append, &argv_init, callee);
+	UVECTOR_CALL(string_v, append, &argv_init, opt.Arg0 ? opt.Arg0 : callee);
 	for (int i = (optind + 1); i < (argc - 1); i++) {
 		UVECTOR_CALL(string_v, append, &argv_init, argv[i]);
 	}
@@ -206,10 +212,10 @@ static void do_exec(void)
 	const char * const * argv = UVECTOR_CALL(string_v, to_ptrlist, &argv_curr);
 	if (opt.Clean_env) {
 		char * envp[] = { NULL };
-		execvpe(argv[0], (char * const *) argv, envp);
+		execvpe(callee, (char * const *) argv, envp);
 	}
 	else
-		execvp(argv[0], (char * const *) argv);
+		execvp(callee, (char * const *) argv);
 	// execution follows here in case of errors
 	err = errno;
 	dump_error(err, "execvp(3)");

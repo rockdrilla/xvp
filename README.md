@@ -14,20 +14,23 @@ If you have problems with it then feel free to open the issue/PR. :)
 
 ## Usage:
 
-`xvp [-cfiu] <program> [..<common args>] <arg file>`
+`xvp [-a <arg0>] [-cfiu] <program> [..<common args>] <arg file>`
 
 `<arg file>` - file with NUL-separated arguments
 
 ### Options:
 
-| Option | Description                                                               |
-| ------ | ------------------------------------------------------------------------- |
-|  `-i`  | information only (print related system limits and do not run `<program>`) |
-|  `-c`  | run `<program>` with empty environment                                    |
-|  `-f`  | force **single** `<program>` execution or return error                    |
-|  `-u`  | unlink (delete) `<arg file>` after work only if it's regular file         |
+| Option       | Description                                                               |
+| ------       | ------------------------------------------------------------------------- |
+|  `-i`        | information only (print related system limits and do not run `<program>`) |
+|  `-a <arg0>` | set `argv[0]` for `<program>` to `<arg0>`                                 |
+|  `-c`        | run `<program>` with empty environment                                    |
+|  `-f`        | force **single** `<program>` execution or return error                    |
+|  `-u`        | unlink (delete) `<arg file>` after work only if it's regular file         |
 
 ### Example:
+
+#### Example 1 - common
 
 Nota bene: two dashes ("--") are mandatory for /bin/sh in this example.
 
@@ -43,6 +46,53 @@ Nota bene: two dashes ("--") are mandatory for /bin/sh in this example.
 # ls -l /tmp/argz
 ls: cannot access '/tmp/argz': No such file or directory
 ```
+
+#### Example 2 - option "-a"
+
+Nota bene: if option "`-a`" is specified then next argument is treated as `<arg0>` and used as is.
+
+Consider having test program `printargs` with source code:
+
+```c
+#include <stdio.h>
+int main(int argc, char * argv[]) {
+    for (int i = 0; i < argc; i++) {
+        printf("%s ", argv[i]);
+    }
+    printf("\n");
+    return 0;
+}
+```
+
+Invoke it with clean environment:
+
+```sh
+# printf '%s\0' arg1 arg2 > /tmp/argz
+# xxd < /tmp/argz
+00000000: 6172 6731 0061 7267 3200                 arg1.arg2.
+# xvp -c printargs /tmp/argz
+printargs arg1 arg2
+```
+
+Now add "`-a testapp`"
+
+```sh
+# xvp -a testapp -c printargs /tmp/argz
+testapp arg1 arg2
+```
+
+And finally - remove "*by mistake*" value "`testapp`" after option "`-a`"
+
+```sh
+# xvp -a -c printargs /tmp/argz
+-c arg1 arg2
+```
+
+Option "`-c`" was not in effect in `xvp`.
+
+This is why option "`-a`" should be used with care.
+
+#### Example 3 - analog in shell
 
 Generic case "`xvp -u program ./argfile`" is roughly equal to:
 
