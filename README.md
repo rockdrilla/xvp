@@ -59,12 +59,14 @@ Note: clone repository **recursively** (due to `git submodule`)
 git clone --recurse-submodules https://github.com/rockdrilla/xvp.git
 ```
 
-Build dependencies: `gcc` and `libc6-dev`.
+Build dependencies: `binutils`, `gcc`, `libc6-dev` and `make`.
 
 *They're quite common for building software from sources.*
 
+Then run `make` (recipe is [here](Makefile)).
+
 ```sh
-gcc -O2 -o xvp xvp.c
+make
 ```
 
 ---
