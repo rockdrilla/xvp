@@ -14,9 +14,9 @@ If you have problems with it then feel free to open the issue/PR. :)
 
 ## Usage:
 
-`xvp [-a <arg0>] [-cfinsu] <program> [..<common args>] <arg file>`
+`xvp [-a <arg0>] [-cfinsu] <program> [..<common args>] {<arg file>|-}`
 
-`<arg file>` - file with NUL-separated arguments
+`<arg file>` - file with NUL-separated arguments; specify `"-"` to read from stdin.
 
 ### Options:
 
@@ -28,6 +28,18 @@ If you have problems with it then feel free to open the issue/PR. :)
 |  `-f`        | force **single** `<program>` execution or return error                    |
 |  `-n`        | no wait for child processes - run as much processes at once as possible   |
 |  `-u`        | unlink (delete) `<arg file>` after work only if it's regular file         |
+
+### Notes about reading from stdin:
+
+`xvp` tries to detect in various ways if `<arg file>` and `stdin` are same file/source and if yes:
+
+- option "`-u`" is ignored;
+
+- child processes are isolated from current `stdin`:
+
+  their own `stdin` is redirected from `/dev/null` (if possible);
+
+  otherwise, `stdin` is just closed.
 
 ### Example:
 

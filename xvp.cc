@@ -52,7 +52,7 @@ static void usage(int retcode)
 {
 	(void) fputs(
 	"xvp 0.2.1\n"
-	"Usage: xvp [-a <arg0>] [-cfhinsu] <program> [..<common args>] <arg file>\n"
+	"Usage: xvp [-a <arg0>] [-cfhinsu] <program> [..<common args>] {<arg file>|-}\n"
 	" -a <arg0> - arg0 (set argv[0] for <program> to <arg0>)\n"
 	" -c        - clean env (run <program> with empty environment)\n"
 	" -h        - help (show this message)\n"
@@ -62,9 +62,11 @@ static void usage(int retcode)
 	" -s        - strict (stop after first failed child process)\n"
 	" -u        - unlink (delete <arg file> if it's regular file)\n"
 	"\n"
-	" <arg file> - file with NUL-separated arguments\n"
+	" <arg file> - file with NUL-separated arguments or stdin if \"-\" was specified\n"
 	"\n"
-	" Note: options \"-n\" and \"-s\" are mutually exclusive.\n"
+	" Notes:\n"
+	" - options \"-n\" and \"-s\" are mutually exclusive;\n"
+	" - option \"-u\" is ignored if reading from stdin.\n"
 	, stderr);
 
 	exit(retcode);
