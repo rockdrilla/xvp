@@ -14,7 +14,7 @@ If you have problems with it then feel free to open the issue/PR. :)
 
 ## Usage:
 
-`xvp [-a <arg0>] [-cfinu] <program> [..<common args>] <arg file>`
+`xvp [-a <arg0>] [-cfinsu] <program> [..<common args>] <arg file>`
 
 `<arg file>` - file with NUL-separated arguments
 

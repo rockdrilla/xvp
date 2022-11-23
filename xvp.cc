@@ -46,22 +46,25 @@
 #include "include/io/log-stderr.h"
 #include "include/uvector/uvector.hh"
 
-#define XVP_OPTS "a:cfhinu"
+#define XVP_OPTS "a:cfhinsu"
 
 static void usage(int retcode)
 {
 	(void) fputs(
 	"xvp 0.2.1\n"
-	"Usage: xvp [-a <arg0>] [-cfhinu] <program> [..<common args>] <arg file>\n"
+	"Usage: xvp [-a <arg0>] [-cfhinsu] <program> [..<common args>] <arg file>\n"
 	" -a <arg0> - arg0 (set argv[0] for <program> to <arg0>)\n"
 	" -c        - clean env (run <program> with empty environment)\n"
 	" -h        - help (show this message)\n"
 	" -i        - info (print limits and do nothing)\n"
 	" -n        - no wait (run as much processes at once as possible)\n"
 	" -f        - force (force _single_ <program> execution or return error)\n"
+	" -s        - strict (stop after first failed child process)\n"
 	" -u        - unlink (delete <arg file> if it's regular file)\n"
 	"\n"
 	" <arg file> - file with NUL-separated arguments\n"
+	"\n"
+	" Note: options \"-n\" and \"-s\" are mutually exclusive.\n"
 	, stderr);
 
 	exit(retcode);
@@ -75,6 +78,7 @@ static struct {
 	  Force_once,
 	  Info_only,
 	  No_wait,
+	  Strict,
 	  Unlink_argfile
 	;
 } opt;
@@ -128,8 +132,12 @@ static void parse_opts(int argc, char * argv[])
 			opt.Info_only = 1;
 			continue;
 		case 'n':
-			if (opt.No_wait) break;
+			if (opt.No_wait || opt.Strict) break;
 			opt.No_wait = 1;
+			continue;
+		case 's':
+			if (opt.No_wait || opt.Strict) break;
+			opt.Strict = 1;
 			continue;
 		case 'u':
 			if (opt.Unlink_argfile) break;
@@ -490,10 +498,73 @@ static void run(void)
 			goto _run_out;
 		}
 
+		(void) waitpid(-1, nullptr, WNOHANG);
+
 		if (!opt.No_wait) {
+			err = ECHILD;
+
 			// wait for child
-			waitid(P_PID, child, &child_info, WEXITED);
-			usleep(1);
+			do {
+				usleep(1);
+				(void) memset(&child_info, 0, sizeof(child_info));
+				if (0 != waitid(P_PID, child, &child_info, WEXITED | WSTOPPED | WCONTINUED)) {
+					break;
+				}
+
+				if (!opt.Strict) {
+					if (child_info.si_code == CLD_EXITED)
+						err = child_info.si_status;
+
+					switch (child_info.si_code) {
+					case CLD_STOPPED:
+						// -fallthrough
+					case CLD_CONTINUED:
+						break;
+					case CLD_EXITED:
+						// -fallthrough
+					case CLD_KILLED:
+						// -fallthrough
+					case CLD_DUMPED:
+						// -fallthrough
+					case CLD_TRAPPED:
+						child = 0;
+						break;
+					default:
+						log_stderr("xvp: child process %d has been turned into unknown state (siginfo_t.si_code=%d)", child, child_info.si_code);
+						child = 0;
+						break;
+					}
+				} else {
+					switch (child_info.si_code) {
+					case CLD_STOPPED:
+						log_stderr("xvp: child process %d has been stopped", child);
+						break;
+					case CLD_CONTINUED:
+						log_stderr("xvp: child process %d has been continued", child);
+						break;
+					case CLD_EXITED:
+						err = child_info.si_status;
+						if (err == 0) {
+							child = 0;
+							break;
+						}
+						log_stderr("xvp: child process %d has exited with non-null return code: %d", child, err);
+						goto _run_out;
+					case CLD_KILLED:
+						log_stderr("xvp: child process %d has been killed by signal %d", child, child_info.si_status);
+						goto _run_out;
+					case CLD_DUMPED:
+						log_stderr("xvp: child process %d has been dumped by signal %d", child, child_info.si_status);
+						goto _run_out;
+					case CLD_TRAPPED:
+						log_stderr("xvp: child process %d has been trapped by signal %d", child, child_info.si_status);
+						goto _run_out;
+					default:
+						log_stderr("xvp: child process %d has been turned into unknown state (siginfo_t.si_code=%d)", child, child_info.si_code);
+						goto _run_out;
+					}
+				}
+			} while (child);
 		}
 
 		// do rest of work
@@ -513,11 +584,12 @@ static void run(void)
 
 	delete_script();
 
-	waitid(P_ALL, 0, nullptr, WEXITED);
+	memset(&child_info, 0, sizeof(child_info));
+	waitid(P_ALL, 0, &child_info, WEXITED);
 	usleep(1);
 
 	do_exec();
-	return;
+	exit(err);
 
 _run_out:
 	if (fd >= 0) close(fd);
