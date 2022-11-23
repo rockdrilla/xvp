@@ -178,6 +178,32 @@ static uvector::str<> argv_init, argv_curr;
 
 static struct stat f_stat;
 
+// differs from "findutils" variant
+static constexpr size_t argc_padding = 4;
+
+static size_t get_argv_fullsize(const uvector::str<> * argv)
+{
+	return argv->used() + argv->count() * sizeof(size_t);
+}
+
+static bool is_argv_full(const uvector::str<> * argv) {
+	if (argv->count() > argc_max)
+		return true;
+	if (get_argv_fullsize(argv) > size_args)
+		return true;
+
+	return false;
+}
+
+static bool is_argv_full(const uvector::str<> * argv, size_t extra_arg_length) {
+	if (argv->count() >= argc_max)
+		return true;
+	if ((get_argv_fullsize(argv) + extra_arg_length + 1) >= size_args)
+		return true;
+
+	return false;
+}
+
 static void prepare(int argc, char * argv[])
 {
 	callee = argv[optind];
@@ -196,17 +222,19 @@ static void prepare(int argc, char * argv[])
 			x += memfun_page_default;
 
 		size_env = x;
+
+		if (opt.Clean_env) size_env = POSIX_ENV_HEADROOM;
 	}
-	size_args = get_arg_max() - ((opt.Clean_env) ? 0 : size_env);
-	// differs from "findutils" variant
-	argc_max = (size_args / sizeof(size_t)) - 4;
+	size_args = get_arg_max() - size_env;
+	argc_max = (size_args / sizeof(size_t)) - argc_padding;
+	size_args -= argc_padding * sizeof(size_t);
 
 	argv_init.append(opt.Arg0 ? opt.Arg0 : callee);
 	for (int i = (optind + 1); i < (argc - 1); i++) {
 		argv_init.append(argv[i]);
 	}
 
-	if ((argv_init.used() >= size_args) || (argv_init.count() >= argc_max)) {
+	if (is_argv_full(&argv_init)) {
 		dump_error(E2BIG, "prepare()");
 		exit(E2BIG);
 	}
@@ -285,7 +313,7 @@ static void run(void)
 		fprintf(stderr, "Environment size, round: %lu\n", size_env);
 		fprintf(stderr, "Maximum arguments length, system:  %lu\n", get_arg_max());
 		fprintf(stderr, "Maximum arguments length, current: %lu\n", size_args);
-		fprintf(stderr, "Initial arguments length:          %lu\n", argv_init.used());
+		fprintf(stderr, "Initial arguments length:          %lu\n", get_argv_fullsize(&argv_init));
 		fprintf(stderr, "Maximum argument count: %lu\n", argc_max);
 		fprintf(stderr, "Initial argument count: %u\n", argv_init.count());
 		return;
@@ -406,7 +434,7 @@ static void run(void)
 
 			block++; n_buf -= block; tbuf += block;
 
-			if ((argv_curr.used() + total + 1) >= size_args) {
+			if (is_argv_full(&argv_curr, total)) {
 				exec_ready = 1;
 				arg_pend = 1;
 				break;
@@ -422,7 +450,7 @@ static void run(void)
 			total = 0;
 			(void) memset(buf_arg, 0, s_buf_arg);
 
-			if (argv_curr.count() == argc_max) {
+			if (is_argv_full(&argv_curr, 0)) {
 				exec_ready = 1;
 				break;
 			}
