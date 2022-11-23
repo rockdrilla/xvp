@@ -16,34 +16,41 @@
  * - /tmp/list is deleted by `xvp' as early as possible
  */
 
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
+
 #define _LARGEFILE_SOURCE
 #define _FILE_OFFSET_BITS 64
 #define __STDC_WANT_LIB_EXT1__ 1
 
+#include <cerrno>
+#include <climits>
+#include <cstdio>
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
+
+#include "include/misc/ext-c-begin.h"
+
 #include <dirent.h>
-#include <errno.h>
 #include <fcntl.h>
-#include <limits.h>
-#include <stdio.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
 
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 
+#include "include/misc/ext-c-end.h"
+
 #include "include/io/const.h"
 #include "include/io/log-stderr.h"
-#include "include/uvector/uvector.h"
+#include "include/uvector/uvector.hh"
 
 #define XVP_OPTS "a:cfhiu"
 
 static void usage(int retcode)
 {
-	fputs(
+	(void) fputs(
 	"xvp 0.2.1\n"
 	"Usage: xvp [-a <arg0>] [-cfhiu] <program> [..<common args>] <arg file>\n"
 	" -a <arg0> - arg0 (set argv[0] for <program> to <arg0>)\n"
@@ -69,8 +76,8 @@ static struct {
 	;
 } opt;
 
-static char * callee = NULL;
-static char * script = NULL;
+static const char * callee = nullptr;
+static const char * script = nullptr;
 
 static void parse_opts(int argc, char * argv[]);
 static void prepare(int argc, char * argv[]);
@@ -165,8 +172,8 @@ static size_t get_arg_max(void)
 	return x = (LONG_MAX >> 1);
 }
 
-static size_t   size_env, size_args, argc_max;
-static string_v argv_init, argv_curr;
+static size_t size_env, size_args, argc_max;
+static uvector::str<> argv_init, argv_curr;
 
 static struct stat f_stat;
 
@@ -189,13 +196,12 @@ static void prepare(int argc, char * argv[])
 	// differs from "findutils" variant
 	argc_max = (size_args / sizeof(size_t)) - 4;
 
-	UVECTOR_CALL(string_v, init, &argv_init);
-	UVECTOR_CALL(string_v, append, &argv_init, opt.Arg0 ? opt.Arg0 : callee);
+	argv_init.append(opt.Arg0 ? opt.Arg0 : callee);
 	for (int i = (optind + 1); i < (argc - 1); i++) {
-		UVECTOR_CALL(string_v, append, &argv_init, argv[i]);
+		argv_init.append(argv[i]);
 	}
 
-	if ((argv_init.used >= size_args) || (argv_init.offsets.used >= argc_max)) {
+	if ((argv_init.used() >= size_args) || (argv_init.count() >= argc_max)) {
 		dump_error(E2BIG, "prepare()");
 		exit(E2BIG);
 	}
@@ -203,19 +209,18 @@ static void prepare(int argc, char * argv[])
 
 static void do_exec(void)
 {
-	if (argv_curr.offsets.used == argv_init.offsets.used)
-		return;
+	if (argv_curr.count() == argv_init.count()) return;
 
-	UVECTOR_CALL(string_v, free, &argv_init);
+	argv_init.free();
 
 	int err = 0;
-	const char * const * argv = UVECTOR_CALL(string_v, to_ptrlist, &argv_curr);
+	auto argv = argv_curr.to_ptrlist<char * const>();
 	if (opt.Clean_env) {
-		char * envp[] = { NULL };
-		execvpe(callee, (char * const *) argv, envp);
+		char * envp[] = { nullptr };
+		execvpe(callee, argv, envp);
 	}
 	else
-		execvp(callee, (char * const *) argv);
+		execvp(callee, argv);
 	// execution follows here in case of errors
 	err = errno;
 	dump_error(err, "execvp(3)");
@@ -256,25 +261,35 @@ static void run(void)
 		fprintf(stderr, "Environment size, round: %lu\n", size_env);
 		fprintf(stderr, "Maximum arguments length, system:  %lu\n", get_arg_max());
 		fprintf(stderr, "Maximum arguments length, current: %lu\n", size_args);
-		fprintf(stderr, "Initial arguments length:          %lu\n", argv_init.used);
+		fprintf(stderr, "Initial arguments length:          %lu\n", argv_init.used());
 		fprintf(stderr, "Maximum argument count: %lu\n", argc_max);
-		fprintf(stderr, "Initial argument count: %u\n", argv_init.offsets.used);
+		fprintf(stderr, "Initial argument count: %u\n", argv_init.count());
 		return;
 	}
 
 	int err = 0;
 	int fd = -1;
 
+	size_t n_buf = 0, total = 0, block;
+	ssize_t n_read = 0;
+	char * tbuf = nullptr;
+	uint32_t arg_idx;
+	int arg_pend = 0, exec_ready = 0;
+	pid_t child;
+	siginfo_t child_info;
+
 	size_t s_buf_read = s_buf_arg + memfun_page_size(); // s_buf_arg + one extra page
-	char * buf_arg  = memfun_alloc(s_buf_arg);
-	char * buf_read = memfun_alloc(s_buf_read);
+	auto buf_arg  = memfun_t_alloc<char>(s_buf_arg);
+	auto buf_read = memfun_t_alloc<char>(s_buf_read);
 	if ((!buf_arg) || (!buf_read)) {
 		err = errno;
 		if (!err) err = ENOMEM;
 		goto _run_err;
 	}
 
-	if (!UVECTOR_CALL(string_v, dup, &argv_curr, &argv_init)) {
+	argv_curr.free();
+	argv_curr.append(argv_init);
+	if (!argv_curr.allocated()) {
 		err = errno;
 		if (!err) err = ENOMEM;
 		goto _run_err;
@@ -300,20 +315,12 @@ static void run(void)
 		exit(err);
 	}
 
-	size_t n_buf = 0, total = 0, block;
-	ssize_t n_read = 0;
-	char * tbuf;
-	uint32_t arg_idx;
-	int arg_pend = 0, exec_ready = 0;
-	pid_t child;
-	siginfo_t child_info;
-
 	(void) memset(buf_arg, 0, s_buf_arg);
 
 	for (;;) {
 		if (arg_pend) {
-			arg_idx = UVECTOR_CALL(string_v, append_fixed, &argv_curr, buf_arg, total);
-			if (UVECTOR_CALL(ptroff_v, is_inv, arg_idx)) {
+			arg_idx = argv_curr.append(buf_arg, total);
+			if (uvector::str<>::is_inv(arg_idx)) {
 				err = errno;
 				if (!err) err = ENOMEM;
 				goto _run_out;
@@ -358,14 +365,14 @@ static void run(void)
 
 			block++; n_buf -= block; tbuf += block;
 
-			if ((argv_curr.used + total + 1) >= size_args) {
+			if ((argv_curr.used() + total + 1) >= size_args) {
 				exec_ready = 1;
 				arg_pend = 1;
 				break;
 			}
 
-			arg_idx = UVECTOR_CALL(string_v, append_fixed, &argv_curr, buf_arg, total);
-			if (UVECTOR_CALL(ptroff_v, is_inv, arg_idx)) {
+			arg_idx = argv_curr.append(buf_arg, total);
+			if (uvector::str<>::is_inv(arg_idx)) {
 				err = errno;
 				if (!err) err = ENOMEM;
 				goto _run_out;
@@ -374,7 +381,7 @@ static void run(void)
 			total = 0;
 			(void) memset(buf_arg, 0, s_buf_arg);
 
-			if (argv_curr.offsets.used == argc_max) {
+			if (argv_curr.count() == argc_max) {
 				exec_ready = 1;
 				break;
 			}
@@ -404,8 +411,9 @@ static void run(void)
 		exec_ready = 0;
 
 		// refine current argv
-		UVECTOR_CALL(string_v, free, &argv_curr);
-		if (!UVECTOR_CALL(string_v, dup, &argv_curr, &argv_init)) {
+		argv_curr.free();
+		argv_curr.append(argv_init);
+		if (!argv_curr.allocated()) {
 			err = errno;
 			if (!err) err = ENOMEM;
 			goto _run_out;
@@ -431,7 +439,7 @@ _run_err:
 
 static int handle_file_type(uint32_t type, const char * arg)
 {
-	const char * e_type = NULL;
+	const char * e_type = nullptr;
 	switch (type) {
 	case DT_BLK:  break;
 	case DT_CHR:  break;
