@@ -51,7 +51,7 @@
 static void usage(int retcode)
 {
 	(void) fputs(
-	"xvp 0.2.1\n"
+	"xvp 0.3.0\n"
 	"Usage: xvp [-a <arg0>] [-cfhinsu] <program> [..<common args>] {<arg file>|-}\n"
 	" -a <arg0> - arg0 (set argv[0] for <program> to <arg0>)\n"
 	" -c        - clean env (run <program> with empty environment)\n"
