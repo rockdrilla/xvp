@@ -69,6 +69,7 @@ static void usage(int retcode)
 static struct {
 	char * Arg0;
 	uint8_t
+	  _Script_stdin,
 	  Clean_env,
 	  Force_once,
 	  Info_only,
@@ -180,7 +181,11 @@ static struct stat f_stat;
 static void prepare(int argc, char * argv[])
 {
 	callee = argv[optind];
-	script  = argv[argc - 1];
+	script = argv[argc - 1];
+	if (strcmp(script, "-") == 0) {
+		opt._Script_stdin = 1;
+		script = "/dev/stdin";
+	}
 
 	size_env = get_env_size();
 	{
@@ -213,6 +218,16 @@ static void do_exec(void)
 
 	argv_init.free();
 
+	if (opt._Script_stdin) {
+		int fd_null = open("/dev/null", O_RDONLY);
+		if (fd_null >= 0) {
+			dup2(fd_null, 0);
+			if (fd_null) close(fd_null);
+		} else {
+			close(0);
+		}
+	}
+
 	int err = 0;
 	auto argv = argv_curr.to_ptrlist<char * const>();
 	if (opt.Clean_env) {
@@ -227,8 +242,21 @@ static void do_exec(void)
 	exit(err);
 }
 
+static int compare_stats(const struct stat * stat1, const struct stat * stat2)
+{
+	if (stat1->st_dev != stat2->st_dev) return 0;
+	if (stat1->st_ino != stat2->st_ino) return 0;
+
+	auto mode1 = stat1->st_mode & S_IFMT;
+	auto mode2 = stat2->st_mode & S_IFMT;
+	if (mode1 != mode2) return 0;
+
+	return 1;
+}
+
 static void delete_script(void)
 {
+	if (opt._Script_stdin) return;
 	if (!opt.Unlink_argfile) return;
 	opt.Unlink_argfile = 0;
 
@@ -239,11 +267,7 @@ static void delete_script(void)
 		return;
 	}
 
-	if (f_stat.st_dev != l_stat.st_dev) return;
-	if (f_stat.st_ino != l_stat.st_ino) return;
-
-	l_stat.st_mode &= S_IFMT;
-	if (f_stat.st_mode != l_stat.st_mode) return;
+	if (!compare_stats(&f_stat, &l_stat)) return;
 
 	if (IFTODT(l_stat.st_mode) != DT_REG) return;
 
@@ -270,6 +294,8 @@ static void run(void)
 	int err = 0;
 	int fd = -1;
 
+	struct stat tmp_stat;
+
 	size_t n_buf = 0, total = 0, block;
 	ssize_t n_read = 0;
 	char * tbuf = nullptr;
@@ -295,11 +321,15 @@ static void run(void)
 		goto _run_err;
 	}
 
-	fd = open(script, O_RDONLY | O_CLOEXEC);
-	if (fd < 0) {
-		err = errno;
-		dump_path_error(err, "open(2)", script);
-		exit(err);
+	if (opt._Script_stdin) {
+		fd = 0;
+	} else {
+		fd = open(script, O_RDONLY | O_CLOEXEC);
+		if (fd < 0) {
+			err = errno;
+			dump_path_error(err, "open(2)", script);
+			exit(err);
+		}
 	}
 
 	memset(&f_stat, 0, sizeof(f_stat));
@@ -313,6 +343,17 @@ static void run(void)
 	if (!handle_file_type(IFTODT(f_stat.st_mode), script)) {
 		err = EINVAL;
 		exit(err);
+	}
+
+	while (!opt._Script_stdin) {
+		memset(&tmp_stat, 0, sizeof(tmp_stat));
+		if (fstat(0, &tmp_stat) < 0) break;
+
+		if (!compare_stats(&f_stat, &tmp_stat)) break;
+
+		opt._Script_stdin = 1;
+		close(fd);
+		fd = 0;
 	}
 
 	(void) memset(buf_arg, 0, s_buf_arg);
