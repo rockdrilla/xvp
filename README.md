@@ -14,7 +14,7 @@ If you have problems with it then feel free to open the issue/PR. :)
 
 ## Usage:
 
-`xvp [-a <arg0>] [-cfiu] <program> [..<common args>] <arg file>`
+`xvp [-a <arg0>] [-cfinu] <program> [..<common args>] <arg file>`
 
 `<arg file>` - file with NUL-separated arguments
 
@@ -26,6 +26,7 @@ If you have problems with it then feel free to open the issue/PR. :)
 |  `-a <arg0>` | set `argv[0]` for `<program>` to `<arg0>`                                 |
 |  `-c`        | run `<program>` with empty environment                                    |
 |  `-f`        | force **single** `<program>` execution or return error                    |
+|  `-n`        | no wait for child processes - run as much processes at once as possible   |
 |  `-u`        | unlink (delete) `<arg file>` after work only if it's regular file         |
 
 ### Example:

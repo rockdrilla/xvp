@@ -46,17 +46,18 @@
 #include "include/io/log-stderr.h"
 #include "include/uvector/uvector.hh"
 
-#define XVP_OPTS "a:cfhiu"
+#define XVP_OPTS "a:cfhinu"
 
 static void usage(int retcode)
 {
 	(void) fputs(
 	"xvp 0.2.1\n"
-	"Usage: xvp [-a <arg0>] [-cfhiu] <program> [..<common args>] <arg file>\n"
+	"Usage: xvp [-a <arg0>] [-cfhinu] <program> [..<common args>] <arg file>\n"
 	" -a <arg0> - arg0 (set argv[0] for <program> to <arg0>)\n"
 	" -c        - clean env (run <program> with empty environment)\n"
 	" -h        - help (show this message)\n"
 	" -i        - info (print limits and do nothing)\n"
+	" -n        - no wait (run as much processes at once as possible)\n"
 	" -f        - force (force _single_ <program> execution or return error)\n"
 	" -u        - unlink (delete <arg file> if it's regular file)\n"
 	"\n"
@@ -73,6 +74,7 @@ static struct {
 	  Clean_env,
 	  Force_once,
 	  Info_only,
+	  No_wait,
 	  Unlink_argfile
 	;
 } opt;
@@ -124,6 +126,10 @@ static void parse_opts(int argc, char * argv[])
 		case 'i':
 			if (opt.Info_only) break;
 			opt.Info_only = 1;
+			continue;
+		case 'n':
+			if (opt.No_wait) break;
+			opt.No_wait = 1;
 			continue;
 		case 'u':
 			if (opt.Unlink_argfile) break;
@@ -256,16 +262,27 @@ static void do_exec(void)
 		}
 	}
 
-	int err = 0;
 	auto argv = argv_curr.to_ptrlist<char * const>();
-	if (opt.Clean_env) {
-		char * envp[] = { nullptr };
-		execvpe(callee, argv, envp);
+	int err = 0;
+	while (!err) {
+		if (opt.Clean_env) {
+			char * envp[] = { nullptr };
+			execvpe(callee, argv, envp);
+		}
+		else
+			execvp(callee, argv);
+
+		// execution follows here in case of errors
+		err = errno;
+
+		if (opt.No_wait) {
+			opt.No_wait = 0;
+			err = 0;
+			wait(nullptr);
+			usleep(1000);
+		}
 	}
-	else
-		execvp(callee, argv);
-	// execution follows here in case of errors
-	err = errno;
+	
 	dump_error(err, "execvp(3)");
 	exit(err);
 }
@@ -473,8 +490,11 @@ static void run(void)
 			goto _run_out;
 		}
 
-		// wait for child
-		waitid(P_PID, child, &child_info, WEXITED);
+		if (!opt.No_wait) {
+			// wait for child
+			waitid(P_PID, child, &child_info, WEXITED);
+			usleep(1);
+		}
 
 		// do rest of work
 		exec_ready = 0;
@@ -492,6 +512,9 @@ static void run(void)
 	close(fd); fd = -1;
 
 	delete_script();
+
+	waitid(P_ALL, 0, nullptr, WEXITED);
+	usleep(1);
 
 	do_exec();
 	return;
