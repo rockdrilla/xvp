@@ -31,7 +31,7 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "include/misc/ext-c-begin.h"
+#include <rockdrilla/misc/ext-c-begin.h>
 
 #include <dirent.h>
 #include <fcntl.h>
@@ -40,11 +40,11 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 
-#include "include/misc/ext-c-end.h"
+#include <rockdrilla/misc/ext-c-end.h>
 
-#include "include/io/const.h"
-#include "include/io/log-stderr.h"
-#include "include/uvector/uvector.hh"
+#include <rockdrilla/io/const.h>
+#include <rockdrilla/io/log-stderr.h>
+#include <rockdrilla/uvector/uvector.hh>
 
 #define XVP_OPTS "a:cfhinsu"
 

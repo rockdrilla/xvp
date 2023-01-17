@@ -9,7 +9,7 @@ CXX   =$(CROSS)g++
 STRIP =$(CROSS)strip
 
 CFLAGS   ?=-O2 -g0 -fPIE -fstack-protector-strong
-CPPFLAGS ?=-Wall -Wextra -Werror=format-security -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2
+CPPFLAGS ?=-I./include -Wall -Wextra -Werror=format-security -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2
 CXXFLAGS ?=
 LDFLAGS  ?=-Wl,-z,relro -Wl,-z,now -pie
 

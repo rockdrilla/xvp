@@ -117,12 +117,6 @@ wait ; rm -f ./argfile
 
 ## Building from source:
 
-Note: clone repository **recursively** (due to `git submodule`)
-
-```sh
-git clone --recurse-submodules https://github.com/rockdrilla/xvp.git
-```
-
 Build dependencies: `binutils`, `g++`, `gcc`, `libc6-dev` and `make`.
 
 *They're quite common for building software from sources.*
