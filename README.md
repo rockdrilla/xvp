@@ -6,7 +6,7 @@ If argument list (file) is empty then program will not be executed - compare wit
 
 Hovewer, `xvp` is NOT replacement for `xargs` or `xe` - it does the same tasks with different options.
 
-`xvp` is small supplemental utility for [minimal Debian container image](https://github.com/rockdrilla/docker-debian) (*work in progress*).
+`xvp` is small supplemental utility for [minimal Debian container image](https://github.com/rockdrilla/debian-container) (*work in progress*).
 
 If you have problems with it then feel free to open the issue/PR. :)
 
